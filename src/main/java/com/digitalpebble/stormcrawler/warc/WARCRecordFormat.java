@@ -5,6 +5,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
@@ -27,14 +28,29 @@ public class WARCRecordFormat implements RecordFormat {
     private static final String CRLF = "\r\n";
     private static final byte[] CRLF_BYTES = { 13, 10 };
 
+    private static final Map<String, String> EMPTY_MAP = new HashMap<>();
+
     private static final SimpleDateFormat warcdf = new SimpleDateFormat(
             "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH);
 
     /**
-     * Generates a WARC info entry which can be stored at the beginning of each
-     * WARC file.
-     **/
-    public static byte[] generateWARCInfo(Map<String, String> fields) {
+     * Generates a WARC info record to be stored at the beginning of each WARC
+     * file. The WARC record header always contains the following header fields:
+     * &quot;WARC-Type&quot;, &quot;WARC-Date&quot;, &quot;WARC-Record-ID&quot;,
+     * &quot;Content-Type&quot; and &quot;Content-Length&quot;.
+     * 
+     * @param warcFields
+     *            <a href=
+     *            "https://github.com/iipc/warc-specifications/blob/gh-pages/specifications/warc-format/warc-1.0/index.md#warcinfo">warc-fields</a>
+     *            describing the WARC file content including information about
+     *            the crawler, e.g., &quot;operator&quot;, &quot;software&quot;
+     * @param optionalHeaderFields
+     *            optional fields to be added to the WARC header in addition to
+     *            the mandatory default fields
+     * @return serialized warcinfo record
+     */
+    public static byte[] generateWARCInfo(Map<String, String> warcFields,
+            Map<String, String> optionalHeaderFields) {
         StringBuffer buffer = new StringBuffer();
         buffer.append(WARC_VERSION);
         buffer.append(CRLF);
@@ -50,6 +66,11 @@ public class WARCRecordFormat implements RecordFormat {
         buffer.append("WARC-Record-ID").append(": ").append("<urn:uuid:")
                 .append(mainID).append(">").append(CRLF);
 
+        for (Entry<String, String> entry : optionalHeaderFields.entrySet()) {
+            buffer.append(entry.getKey()).append(": ").append(entry.getValue())
+                    .append(CRLF);
+        }
+
         buffer.append("Content-Type").append(": ")
                 .append("application/warc-fields").append(CRLF);
 
@@ -57,7 +78,7 @@ public class WARCRecordFormat implements RecordFormat {
 
         // add WARC fields
         // http://bibnum.bnf.fr/warc/WARC_ISO_28500_version1_latestdraft.pdf
-        Iterator<Entry<String, String>> iter = fields.entrySet().iterator();
+        Iterator<Entry<String, String>> iter = warcFields.entrySet().iterator();
         while (iter.hasNext()) {
             Entry<String, String> entry = iter.next();
             fieldsBuffer.append(entry.getKey()).append(": ")
@@ -76,6 +97,14 @@ public class WARCRecordFormat implements RecordFormat {
         buffer.append(CRLF);
 
         return buffer.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Generates a WARC info record with mandatory default header fields, see
+     * {@link #generateWARCInfo(Map, Map)}.
+     */
+    public static byte[] generateWARCInfo(Map<String, String> warcFields) {
+        return generateWARCInfo(warcFields, EMPTY_MAP);
     }
 
     @Override

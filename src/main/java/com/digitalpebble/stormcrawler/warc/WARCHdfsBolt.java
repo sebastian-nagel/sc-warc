@@ -1,6 +1,8 @@
 package com.digitalpebble.stormcrawler.warc;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.storm.hdfs.bolt.rotation.FileSizeRotationPolicy;
@@ -11,6 +13,8 @@ import org.apache.storm.hdfs.bolt.sync.CountSyncPolicy;
 public class WARCHdfsBolt extends GzipHdfsBolt {
 
     private byte[] header;
+    private Map<String, String> warcInfoFields;
+    private Map<String, String> warcInfoOptHeader;
 
     public WARCHdfsBolt() {
         super();
@@ -26,8 +30,34 @@ public class WARCHdfsBolt extends GzipHdfsBolt {
         withFsUrl("file:///");
     }
 
+    /**
+     * Define a header, i.e., the first record of a WARC file.
+     * Deprecated, use {@link #setWarcInfo(Map, Map)} instead.
+     *
+     * @param header
+     * @return
+     */
+    @Deprecated
     public WARCHdfsBolt withHeader(byte[] header) {
         this.header = header;
+        return this;
+    }
+
+    /**
+     * Set content used to generate warcinfo record, see
+     * {@link WARCRecordFormat#generateWARCInfo(Map,Map)}.
+     *
+     * @param warcFields
+     * @param optionalHeaderFields
+     *            optional fields to be added to the WARC record header If the
+     *            map contains a key &quot;WARC-Filename&quot; with null as
+     *            value, the current file name is added.
+     * @return
+     */
+    public WARCHdfsBolt setWarcInfo(Map<String, String> warcFields,
+            Map<String, String> optionalHeaderFields) {
+        this.warcInfoFields = warcFields;
+        this.warcInfoOptHeader = optionalHeaderFields;
         return this;
     }
 
@@ -37,6 +67,23 @@ public class WARCHdfsBolt extends GzipHdfsBolt {
         // write the header at the beginning of the file
         if (header != null && header.length > 0) {
             writeRecord(header);
+        }
+
+        // write warcinfo record with current date and filename
+        if (warcInfoFields != null) {
+            Map<String, String> headerFields = new HashMap<>();
+            for (String field : warcInfoOptHeader.keySet()) {
+                String value = warcInfoOptHeader.get(field);
+                if ("WARC-Filename".equals(field) && value == null) {
+                    value = path.toString();
+                    value = value.substring(
+                            value.lastIndexOf(Path.SEPARATOR_CHAR) + 1);
+                }
+                headerFields.put(field, value);
+            }
+            byte[] warcinfo = WARCRecordFormat.generateWARCInfo(warcInfoFields,
+                    headerFields);
+            writeRecord(warcinfo);
         }
 
         return path;
