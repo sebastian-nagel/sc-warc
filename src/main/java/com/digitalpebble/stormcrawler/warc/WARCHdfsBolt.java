@@ -1,16 +1,21 @@
 package com.digitalpebble.stormcrawler.warc;
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.storm.hdfs.bolt.rotation.FileSizeRotationPolicy;
 import org.apache.storm.hdfs.bolt.rotation.FileSizeRotationPolicy.Units;
 import org.apache.storm.hdfs.bolt.sync.CountSyncPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
 public class WARCHdfsBolt extends GzipHdfsBolt {
+
+    private static final Logger LOG = LoggerFactory
+            .getLogger(WARCHdfsBolt.class);
 
     private byte[] header;
     private Map<String, String> warcInfoFields;
@@ -63,6 +68,7 @@ public class WARCHdfsBolt extends GzipHdfsBolt {
 
     protected Path createOutputFile() throws IOException {
         Path path = super.createOutputFile();
+        LOG.info("Starting new WARC file: {}", path);
 
         // write the header at the beginning of the file
         if (header != null && header.length > 0) {
@@ -71,7 +77,7 @@ public class WARCHdfsBolt extends GzipHdfsBolt {
 
         // write warcinfo record with current date and filename
         if (warcInfoFields != null) {
-            Map<String, String> headerFields = new HashMap<>();
+            Map<String, String> headerFields = new LinkedHashMap<>();
             for (String field : warcInfoOptHeader.keySet()) {
                 String value = warcInfoOptHeader.get(field);
                 if ("WARC-Filename".equals(field) && value == null) {

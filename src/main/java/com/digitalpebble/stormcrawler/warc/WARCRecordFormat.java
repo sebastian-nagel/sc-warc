@@ -4,12 +4,15 @@ import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang.StringUtils;
@@ -19,14 +22,24 @@ import com.digitalpebble.stormcrawler.Metadata;
 import com.digitalpebble.stormcrawler.protocol.HttpHeaders;
 
 import org.apache.storm.tuple.Tuple;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Generate a byte representation of a WARC entry from a tuple **/
 @SuppressWarnings("serial")
 public class WARCRecordFormat implements RecordFormat {
 
+    private static final Logger LOG = LoggerFactory
+            .getLogger(WARCRecordFormat.class);
+
     private static final String WARC_VERSION = "WARC/1.0";
     private static final String CRLF = "\r\n";
     private static final byte[] CRLF_BYTES = { 13, 10 };
+
+    /** Default fields of warcinfo record header */
+    public static final Set<String> defaultWarcinfoHeaderFields = new HashSet<String>(
+            Arrays.asList(new String[] { "WARC-Type", "WARC-Date",
+                    "WARC-Record-ID", "Content-Type", "Content-Length" }));
 
     private static final Map<String, String> EMPTY_MAP = new HashMap<>();
 
@@ -35,9 +48,8 @@ public class WARCRecordFormat implements RecordFormat {
 
     /**
      * Generates a WARC info record to be stored at the beginning of each WARC
-     * file. The WARC record header always contains the following header fields:
-     * &quot;WARC-Type&quot;, &quot;WARC-Date&quot;, &quot;WARC-Record-ID&quot;,
-     * &quot;Content-Type&quot; and &quot;Content-Length&quot;.
+     * file. The WARC record header always contains the header fields defined in
+     * {@link #defaultWarcinfoHeaderFields}.
      * 
      * @param warcFields
      *            <a href=
@@ -67,6 +79,12 @@ public class WARCRecordFormat implements RecordFormat {
                 .append(mainID).append(">").append(CRLF);
 
         for (Entry<String, String> entry : optionalHeaderFields.entrySet()) {
+            if (defaultWarcinfoHeaderFields.contains(entry.getKey())) {
+                LOG.warn(
+                        "Default header field {} passed as optional field is ignored in warcinfo record",
+                        entry.getKey());
+                continue;
+            }
             buffer.append(entry.getKey()).append(": ").append(entry.getValue())
                     .append(CRLF);
         }
