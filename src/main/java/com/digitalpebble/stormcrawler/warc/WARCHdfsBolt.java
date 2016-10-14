@@ -75,9 +75,7 @@ public class WARCHdfsBolt extends GzipHdfsBolt {
             for (String field : warcInfoOptHeader.keySet()) {
                 String value = warcInfoOptHeader.get(field);
                 if ("WARC-Filename".equals(field) && value == null) {
-                    value = path.toString();
-                    value = value.substring(
-                            value.lastIndexOf(Path.SEPARATOR_CHAR) + 1);
+                    value = path.getName();
                 }
                 headerFields.put(field, value);
             }
